@@ -1,0 +1,41 @@
+{
+  "name": "@webergency-utils/heap",
+  "version": "0.0.1",
+  "description": "",
+  "author": "radixxko",
+  "license": "MIT",
+  "main": "dist/heap.js",
+  "module": "dist/esm/heap.js",
+  "types": "dist/heap.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/heap.d.ts",
+        "default": "./dist/esm/heap.js"
+      },
+      "require": {
+        "types": "./dist/heap.d.ts",
+        "default": "./dist/heap.js"
+      }
+    }
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "build": "tsc && tsc -p tsconfig.esm.json && echo '{\"type\":\"module\"}' > dist/esm/package.json",
+    "version": "npm i && npm run build && npm publish --access public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/webergency-utils/heap.git"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@vitest/coverage-v8": "^4.1.9",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}
