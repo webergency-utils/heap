@@ -1,21 +1,25 @@
 {
   "name": "@webergency-utils/heap",
   "version": "1.0.0",
-  "description": "",
+  "type": "module",
+  "description": "A high-performance, type-safe Binary Heap implementation for TypeScript and Node.js.",
   "author": "radixxko",
   "license": "MIT",
-  "main": "dist/heap.js",
-  "module": "dist/esm/heap.js",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "dist/heap.cjs",
+  "module": "dist/heap.js",
   "types": "dist/heap.d.ts",
   "exports": {
     ".": {
       "import": {
-        "types": "./dist/esm/heap.d.ts",
-        "default": "./dist/esm/heap.js"
-      },
-      "require": {
         "types": "./dist/heap.d.ts",
         "default": "./dist/heap.js"
+      },
+      "require": {
+        "types": "./dist/heap.d.cts",
+        "default": "./dist/heap.cjs"
       }
     }
   },
@@ -24,9 +28,10 @@
   ],
   "scripts": {
     "test": "vitest run",
+    "fuzz": "jazzer fuzz_heap.cjs",
     "coverage": "vitest run --coverage",
-    "clean": "rm -rf ./dist/* node_modules package-lock.json && npm i",
-    "build": "npm run clean && tsc && tsc -p tsconfig.esm.json && echo '{\"type\":\"module\"}' > dist/esm/package.json",
+    "clean": "rm -rf ./dist/*",
+    "build": "npm run clean && tsup",
     "commit": "node -e \"const version = require('./package.json').version.trim(); require('child_process').execSync('git add . && git commit -m \\\"Version ' + version + '\\\"');\"",
     "version": "npm run build && npm publish --access public && npm run commit && git push"
   },
@@ -35,9 +40,11 @@
     "url": "git+https://github.com/webergency-utils/heap.git"
   },
   "devDependencies": {
+    "@jazzer.js/core": "^4.0.0",
     "@types/node": "^26.0.0",
     "@vitest/coverage-v8": "^4.1.9",
-    "typescript": "^6.0.3",
+    "tsup": "^8.5.1",
+    "typescript": "^5.7.0",
     "vitest": "^4.1.9"
   }
 }
