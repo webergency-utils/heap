@@ -1,6 +1,6 @@
 {
   "name": "@webergency-utils/heap",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "type": "module",
   "sideEffects": false,
   "description": "A high-performance, type-safe Binary Heap implementation for TypeScript and Node.js.",
