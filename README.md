@@ -135,10 +135,10 @@ const maxHeap = new Heap<{ id: string; val: number }, string>(
 ##### Heap.from
 
 ```typescript
-static from<T, I>(
-  container: Array<T> | Set<T> | Map<any, T>,
+static from<T, I = T>(
+  container: Iterable<T> | Map<any, T>,
   comparator?: Comparator<T>,
-  id_getter?: (item: T) => I
+  id_getter?: IdGetter<T, I>
 ): Heap<T, I>
 ```
 
@@ -203,7 +203,7 @@ heap.push(10).push(20).push(3);
 ##### pop
 
 ```typescript
-pop(): T | void
+pop(): T | undefined
 ```
 
 Removes and returns the root element (the minimum element in a min-heap or maximum in a max-heap).
@@ -219,8 +219,8 @@ const lowest = heap.pop();
 ##### top / peek
 
 ```typescript
-top(): T | void
-peek(): T | void
+top(): T | undefined
+peek(): T | undefined
 ```
 
 Returns the root element without removing it. Note that `peek()` is an alias for `top()`.
@@ -230,7 +230,7 @@ Returns the root element without removing it. Note that `peek()` is an alias for
 ##### get
 
 ```typescript
-get(id: I): T | void
+get(id: I): T | undefined
 ```
 
 Retrieves an element by its identifier.

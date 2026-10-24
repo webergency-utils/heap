@@ -1,341 +1,533 @@
-type Comparator<T> = ( a: T, b: T ) => number;
+export type Comparator<T> = ( a: T, b: T ) => number;
+export type IdGetter<T, I = T> = ( item: T ) => I;
 
-export default class Heap<T,I=T>
+const DEFAULT_COMPARATOR = <T>( a: T, b: T ): number => a < b ? -1 : ( a > b ? 1 : 0 );
+const DEFAULT_ID_GETTER = <T, I>( item: T ): I => item as unknown as I;
+
+export default class Heap<T, I = T>
 {
-	protected data: T[];
-	protected index: Map<I,number> | undefined;
-	protected compare: Comparator<T>;
-	protected get_id: ( item: T ) => I;
-	protected sorted: boolean = true;
-	protected updated = new Set<T>();
+    protected data    : T[];
+    protected index   : Map<I, number> | undefined;
+    protected compare : Comparator<T>;
+    protected get_id  : IdGetter<T, I>;
+    protected sorted  : boolean = true;
+    protected updated = new Set<T>();
 
-	constructor( comparator?: Comparator<T>, id_getter?: ( item: T ) => I )
-	{
-		this.data = new Array();
-		this.compare = comparator ? comparator : ( a: T, b: T ) => a < b ? -1 : ( a > b ? 1 : 0 );
-		this.get_id = id_getter ?? ( ( item: T ) => item as unknown as I );
-	}
+    constructor( comparator?: Comparator<T>, id_getter?: IdGetter<T, I> )
+    {
+        this.data = [];
+        this.compare = comparator ?? DEFAULT_COMPARATOR;
+        this.get_id = id_getter ?? DEFAULT_ID_GETTER;
+    }
 
-	static from<T,I>( container: Array<T> | Set<T> | Map<any,T>, comparator?: Comparator<T>, id_getter?: ( item: T ) => I )
-	{
-		let heap = new Heap<T,I>( comparator, id_getter );
+    static from<T, I = T>( container: Iterable<T> | Map<any, T>, comparator?: Comparator<T>, id_getter?: IdGetter<T, I> ): Heap<T, I>
+    {
+        const heap = new Heap<T, I>( comparator, id_getter );
 
-		heap.data = Array.from( container.values() );
+        heap.data = Array.from( container instanceof Map ? container.values() : container );
 
-		for( let i = ( heap.data.length - 2 ) >> 1; i >= 0; --i )
-		{
-			heap.sift_down( i );
-		}
+        for( let i = ( heap.data.length - 2 ) >> 1; i >= 0; --i )
+        {
+            heap.sift_down( i );
+        }
 
-		return heap;
-	}
+        return heap;
+    }
 
-	protected sift_up( i: number )
-	{
-		let pi = ( i - 1 ) >> 1;
+    protected sift_up( i: number ): void
+    {
+        const data = this.data;
+        const compare = this.compare;
+        const item = data[i];
 
-		while( i > 0 && this.compare( this.data[i], this.data[pi] ) < 0 )
-		{
-			let v = this.data[i];
-			this.data[i] = this.data[pi];
-			this.data[pi] = v;
+        if( this.index )
+        {
+            const index = this.index;
+            const get_id = this.get_id;
 
-			if( this.index )
-			{
-				this.index.set( this.get_id( this.data[i]), i );
-				this.index.set( this.get_id( this.data[pi]), pi );
-			}
+            while( i > 0 )
+            {
+                const pi = ( i - 1 ) >> 1;
+                const parent = data[pi];
 
-			i = pi;
-			pi = ( i - 1 ) >> 1;
-		}
-	}
+                if( compare( item, parent ) >= 0 ){ break }
 
-	protected sift_down( i: number )
-	{
-		let ci = 2 * i + 1;
+                data[i] = parent;
+                index.set( get_id( parent ), i );
+                i = pi;
+            }
 
-		while( ci < this.data.length )
-		{
-			ci = this.data.length > ci + 1 && this.compare( this.data[ci+1], this.data[ci] ) < 0 ? ci + 1 : ci;
+            data[i] = item;
+            index.set( get_id( item ), i );
+        }
+        else
+        {
+            while( i > 0 )
+            {
+                const pi = ( i - 1 ) >> 1;
+                const parent = data[pi];
 
-			if( this.compare( this.data[ci], this.data[i] ) < 0 )
-			{
-				let v = this.data[i];
-				this.data[i] = this.data[ci];
-				this.data[ci] = v;
+                if( compare( item, parent ) >= 0 ){ break }
 
-				if( this.index )
-				{
-					this.index.set( this.get_id( this.data[i]), i );
-					this.index.set( this.get_id( this.data[ci]), ci );
-				}
+                data[i] = parent;
+                i = pi;
+            }
 
-				i = ci;
-				ci = 2 * i + 1;
-			}
-			else{ break; }
-		}
-	}
+            data[i] = item;
+        }
+    }
 
-	protected sift( i: number )
-	{
-		if( this.data.length < 2 ){ return }
+    protected sift_down( i: number ): void
+    {
+        const data = this.data;
+        const len = data.length;
+        let ci = ( i << 1 ) + 1;
 
-		if( i !== 0 && this.compare( this.data[i], this.data[( i - 1 ) >> 1] ) < 0 )
-		{
-			this.sift_up( i );
-		}
-		else
-		{
-			this.sift_down( i );
-		}
-	}
+        if( ci >= len ){ return }
 
-	protected reindex()
-	{
-		this.index = new Map();
+        const compare = this.compare;
+        const item = data[i];
 
-		for( let i = 0; i < this.data.length; ++i )
-		{
-			this.index.set( this.get_id( this.data[i] ), i );
-		}
-	}
+        if( ci + 1 < len && compare( data[ci + 1], data[ci]) < 0 )
+        {
+            ci = ci + 1;
+        }
 
-	protected get_item_index( item: T ): number | void
-	{
-		if( this.data.length )
-		{
-			if( this.data[0] === item )
-			{
-				return 0;
-			}
-			else
-			{
-				if( !this.index ){ this.reindex(); }
+        let child = data[ci];
 
-				return this.index!.get( this.get_id( item ));
-			}
-		}
-	}
+        if( compare( child, item ) >= 0 ){ return }
 
-	public get size(): number
-	{
-		return this.data.length;
-	}
+        if( this.index )
+        {
+            const index = this.index;
+            const get_id = this.get_id;
 
-	public get isEmpty(): boolean
-	{
-		return this.data.length === 0;
-	}
+            do
+            {
+                data[i] = child;
+                index.set( get_id( child ), i );
+                i = ci;
+                ci = ( i << 1 ) + 1;
 
-	public top(): T | void // "peek"
-	{
-		if( this.data.length )
-		{
-			if( !this.sorted ){ this.sort_updated() }
+                if( ci >= len ){ break }
 
-			return this.data[0];
-		}
-	}
+                if( ci + 1 < len && compare( data[ci + 1], data[ci]) < 0 )
+                {
+                    ci = ci + 1;
+                }
 
-	public peek(): T | void
-	{
-		return this.top();
-	}
+                child = data[ci];
+            }
+            while( compare( child, item ) < 0 );
 
-	public push( item: T ): this
-	{
-		this.data.push( item );
+            data[i] = item;
+            index.set( get_id( item ), i );
+        }
+        else
+        {
+            do
+            {
+                data[i] = child;
+                i = ci;
+                ci = ( i << 1 ) + 1;
 
-		if( this.index ){ this.index.set( this.get_id( item ), this.data.length - 1 )}
+                if( ci >= len ){ break }
 
-		this.sift_up( this.data.length - 1 );
+                if( ci + 1 < len && compare( data[ci + 1], data[ci]) < 0 )
+                {
+                    ci = ci + 1;
+                }
 
-		return this;
-	}
+                child = data[ci];
+            }
+            while( compare( child, item ) < 0 );
 
-	public pop(): T | void
-	{
-		if( this.data.length )
-		{
-			if( !this.sorted ){ this.sort_updated() }
+            data[i] = item;
+        }
+    }
 
-			let last = this.data.pop()!;
+    protected sift( i: number ): void
+    {
+        if( this.data.length < 2 ){ return }
 
-			if( this.data.length )
-			{
-				let top = this.data[0]; this.data[0] = last;
+        if( i !== 0 && this.compare( this.data[i], this.data[( i - 1 ) >> 1]) < 0 )
+        {
+            this.sift_up( i );
+        }
+        else
+        {
+            this.sift_down( i );
+        }
+    }
 
-				if( this.index )
-				{
-					this.index.delete( this.get_id( top ));
-					this.index.set( this.get_id( last ), 0 );
-				}
+    protected reindex(): void
+    {
+        const data = this.data;
+        const get_id = this.get_id;
+        const index = new Map<I, number>();
 
-				this.sift_down( 0 );
+        for( let i = 0; i < data.length; ++i )
+        {
+            index.set( get_id( data[i]), i );
+        }
 
-				return top;
-			}
-			else
-			{
-				if( this.index ){ this.index.delete( this.get_id( last ))}
+        this.index = index;
+    }
 
-				return last;
-			}
-		}
-	}
+    protected get_item_index( item: T ): number | undefined
+    {
+        if( this.data.length )
+        {
+            if( this.data[0] === item )
+            {
+                return 0;
+            }
+            else
+            {
+                if( !this.index ){ this.reindex() }
 
-	public get( id: I ): T | void
-	{
-		if( this.data.length )
-		{
-			if( !this.index ){ this.reindex(); }
+                return this.index!.get( this.get_id( item ));
+            }
+        }
 
-			const index = this.index!.get( id );
-			
-			if( index !== undefined )
-			{
-				return this.data[index];
-			}
-		}
-	}
+        return undefined;
+    }
 
-	public has( id: I ): boolean
-	{
-		if( this.data.length )
-		{
-			if( !this.index ){ this.reindex(); }
+    public get size(): number
+    {
+        return this.data.length;
+    }
 
-			return this.index!.has( id );
-		}
-		return false;
-	}
+    public get isEmpty(): boolean
+    {
+        return this.data.length === 0;
+    }
 
-	public values(): IterableIterator<T>
-	{
-		return this.data.values();
-	}
+    public top(): T | undefined
+    {
+        if( this.data.length )
+        {
+            if( !this.sorted ){ this.sort_updated() }
 
-	public [Symbol.iterator](): IterableIterator<T>
-	{
-		return this.values();
-	}
+            return this.data[0];
+        }
 
-	public update( item: T ): boolean
-	{
-		let i = this.get_item_index( item );
+        return undefined;
+    }
 
-		if( i !== undefined )
-		{
-			this.sorted = false;
-			this.updated.add( item );
+    public peek(): T | undefined
+    {
+        return this.top();
+    }
 
-			if( this.updated.size > Math.max( 10, this.data.length * 0.1 ))
-			{
-				this.sort_updated();
-			}
+    public push( item: T ): this
+    {
+        const i = this.data.length;
+        this.data.push( item );
 
-			return true;
-		}
-		
-		return false;
-	}
+        if( this.sorted )
+        {
+            this.sift_up( i );
+        }
+        else
+        {
+            if( this.index )
+            {
+                this.index.set( this.get_id( item ), i );
+            }
 
-	public delete( item: T ): boolean
-	{
-		if( this.size )
-		{
-			let i = this.get_item_index( item );
+            this.updated.add( item );
 
-			if( i !== undefined )
-			{
-				if( i === 0 && this.sorted )
-				{
-					this.pop();
-				}
-				else
-				{
-					let last = this.data.pop()!;
+            if( this.updated.size > Math.max( 10, this.data.length * 0.1 ))
+            {
+                this.sort_updated();
+            }
+        }
 
-					this.updated.has( item ) && this.updated.delete( item );
-					this.index!.delete( this.get_id( item ));
+        return this;
+    }
 
-					if( i < this.data.length )
-					{
-						this.data[i] = last;
-						this.index!.set( this.get_id( last ), i );
+    public pop(): T | undefined
+    {
+        if( this.data.length )
+        {
+            if( !this.sorted ){ this.sort_updated() }
 
-						this.sift( i );
-					}
-				}
+            const last = this.data.pop()!;
 
-				return true;
-			}
-		}
-		
-		return false;
-	}
+            if( this.data.length )
+            {
+                const top = this.data[0];
+                this.data[0] = last;
 
-	public clear(): this
-	{
-		this.data = new Array();
-		this.index = undefined;
-		this.sorted = true;
-		this.updated.clear();
+                if( this.index )
+                {
+                    if( this.index.size < this.data.length + 1 )
+                    {
+                        this.index = undefined;
+                    }
+                    else
+                    {
+                        this.index.delete( this.get_id( top ));
+                        this.index.set( this.get_id( last ), 0 );
+                    }
+                }
 
-		return this;
-	}
+                this.sift_down( 0 );
 
-	public clone(): Heap<T,I>
-	{
-		const heap = new Heap<T,I>( this.compare, this.get_id );
-		heap.data = [ ...this.data ];
-		if( this.index )
-		{
-			heap.index = new Map( this.index );
-		}
-		heap.sorted = this.sorted;
-		heap.updated = new Set( this.updated );
+                return top;
+            }
+            else
+            {
+                if( this.index )
+                {
+                    this.index.delete( this.get_id( last ));
+                }
 
-		return heap;
-	}
+                return last;
+            }
+        }
 
-	protected sort_updated(): void
-	{
-		if( this.updated.size === 1 )
-		{
-			const item = this.updated.values().next().value!;
-			const idx = this.get_item_index( item );
-			if( idx !== undefined )
-			{
-				this.sift( idx );
-			}
-		}
-		else if( this.updated.size > 1 )
-		{
-			for( let i = ( this.data.length - 2 ) >> 1; i >= 0; --i )
-			{
-				this.sift_down( i );
-			}
-			this.index = undefined;
-		}
+        return undefined;
+    }
 
-		this.sorted = true;
-		this.updated.clear();
-	}
+    public get( id: I ): T | undefined
+    {
+        if( this.data.length )
+        {
+            if( !this.index ){ this.reindex() }
 
-	public sort(): this
-	{
-		for( let i = 0; i < this.data.length; ++i )
-		{
-			this.sift_up( i );
-		}
+            const index = this.index!.get( id );
 
-		this.index = undefined;
-		this.sorted = true;
-		this.updated.clear();
+            if( index !== undefined )
+            {
+                return this.data[index];
+            }
+        }
 
-		return this;
-	}
+        return undefined;
+    }
+
+    public has( id: I ): boolean
+    {
+        if( this.data.length )
+        {
+            if( !this.index ){ this.reindex() }
+
+            return this.index!.has( id );
+        }
+
+        return false;
+    }
+
+    public values(): IterableIterator<T>
+    {
+        return this.data.values();
+    }
+
+    public [Symbol.iterator](): IterableIterator<T>
+    {
+        return this.values();
+    }
+
+    public update( item: T ): boolean
+    {
+        const i = this.get_item_index( item );
+
+        if( i !== undefined )
+        {
+            if( this.data[i] !== item )
+            {
+                this.updated.delete( this.data[i]);
+                this.data[i] = item;
+            }
+
+            this.sorted = false;
+            this.updated.add( item );
+
+            if( this.updated.size > Math.max( 10, this.data.length * 0.1 ))
+            {
+                this.sort_updated();
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    public delete( item: T ): boolean
+    {
+        if( this.data.length )
+        {
+            const i = this.get_item_index( item );
+
+            if( i !== undefined )
+            {
+                const target = this.data[i];
+
+                if( !this.sorted )
+                {
+                    this.updated.delete( target );
+                    this.updated.delete( item );
+
+                    if( this.updated.size === 0 )
+                    {
+                        this.sorted = true;
+                    }
+                }
+
+                if( i === 0 && this.sorted )
+                {
+                    this.pop();
+                }
+                else
+                {
+                    const last = this.data.pop()!;
+
+                    if( this.index )
+                    {
+                        if( this.index.size < this.data.length + 1 )
+                        {
+                            this.index = undefined;
+                        }
+                        else
+                        {
+                            this.index.delete( this.get_id( target ));
+                        }
+                    }
+
+                    if( i < this.data.length )
+                    {
+                        this.data[i] = last;
+
+                        if( this.index )
+                        {
+                            this.index.set( this.get_id( last ), i );
+                        }
+
+                        if( this.sorted )
+                        {
+                            this.sift( i );
+                        }
+                        else
+                        {
+                            this.updated.add( last );
+
+                            if( this.updated.size > Math.max( 10, this.data.length * 0.1 ))
+                            {
+                                this.sort_updated();
+                            }
+                        }
+                    }
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public clear(): this
+    {
+        this.data = [];
+        this.index = undefined;
+        this.sorted = true;
+        this.updated.clear();
+
+        return this;
+    }
+
+    public clone(): Heap<T, I>
+    {
+        const heap = new Heap<T, I>( this.compare, this.get_id );
+        heap.data = [ ...this.data ];
+
+        if( this.index )
+        {
+            heap.index = new Map( this.index );
+        }
+
+        heap.sorted = this.sorted;
+        heap.updated = new Set( this.updated );
+
+        return heap;
+    }
+
+    protected sort_updated(): void
+    {
+        if( this.updated.size === 1 )
+        {
+            const item = this.updated.values().next().value!;
+            const idx = this.get_item_index( item )!;
+
+            this.sift( idx );
+        }
+        else if( this.index && this.index.size === this.data.length && this.updated.size <= ( this.data.length >> 5 ))
+        {
+            const index = this.index;
+            const get_id = this.get_id;
+            const idxs: number[] = [];
+
+            for( const item of this.updated )
+            {
+                idxs.push( index.get( get_id( item ))! );
+            }
+
+            idxs.sort(( a, b ) => b - a );
+
+            for( let i = 0; i < idxs.length; ++i )
+            {
+                this.sift_down( idxs[i]);
+            }
+
+            idxs.length = 0;
+
+            for( const item of this.updated )
+            {
+                idxs.push( index.get( get_id( item ))! );
+            }
+
+            idxs.sort(( a, b ) => a - b );
+
+            for( let i = 0; i < idxs.length; ++i )
+            {
+                this.sift_up( idxs[i]);
+            }
+        }
+        else
+        {
+            if( this.index && this.index.size < this.data.length )
+            {
+                this.index = undefined;
+            }
+
+            for( let i = ( this.data.length - 2 ) >> 1; i >= 0; --i )
+            {
+                this.sift_down( i );
+            }
+        }
+
+        this.sorted = true;
+        this.updated.clear();
+    }
+
+    public sort(): this
+    {
+        if( this.index && this.index.size < this.data.length )
+        {
+            this.index = undefined;
+        }
+
+        for( let i = ( this.data.length - 2 ) >> 1; i >= 0; --i )
+        {
+            this.sift_down( i );
+        }
+
+        this.sorted = true;
+        this.updated.clear();
+
+        return this;
+    }
 }
